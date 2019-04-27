@@ -7,15 +7,21 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
         integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
-    <link rel="stylesheet" href="./style.css">
+    <style>
+        h1,
+        h4 {
+            text-align: center;
+        }
+    </style>
     <title>GifTastic</title>
 </head>
 
 <body>
     <h1>GifTastic</h1>
+    <h4>Hover to play gifs, Click to favorite</h4>
     <div class="container buttons">
         <div class="row" id="buttons">
-
+            <button class="btn btn-lg btn-warning" id="favorites">Favorites</button>
         </div>
     </div>
     <div class="container giphy-container">
@@ -33,6 +39,8 @@
                     </div>
                     <button type="submit" class="btn btn-primary" id="submit">Submit</button>
                 </form>
+                <br>
+                <button id="clear-storage" class="btn btn-danger btn-sm">Clear Favorites</button>
             </div>
         </div>
     </div>
@@ -40,6 +48,13 @@
     <script src="https://code.jquery.com/jquery-3.3.1.min.js"
         integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
     <script>
+
+        const favoriteKey = "fav";
+        var favoriteGiphies = [];
+        if (localStorage.getItem(favoriteKey)) {
+            favoriteGiphies = JSON.parse(localStorage.getItem(favoriteKey));
+        }
+        var clicksTracker = { apple: 0, cars: 0, dogs: 0, cat: 0 };
         var preFilledTopics = ["apple", "cars", "dogs", "cat"];
         var buttonContainer = $("#buttons");
         preFilledTopics.forEach(e => {
@@ -50,7 +65,7 @@
             e.preventDefault();
             if ($("#topic-input").val() != "") {
                 generateButton($("#topic-input").val());
-                console.log("generating new button");
+                // console.log("generating new button");
             }
         });
 
@@ -65,8 +80,10 @@
         function fetchGiphy(topic) {
             var giphyArray = [];
             const apikey = "JkPb46q9c58NLlRLRB76YMfdwkFLGVj0";
-            var offset = 0;
-            var url = `https://api.giphy.com/v1/gifs/search?api_key=${apikey}&q=${topic}&limit=9&offset=${offset++}&lang=en`;
+            var limit = 9;
+            var url = `https://api.giphy.com/v1/gifs/search?api_key=${apikey}&q=${topic}&limit=${limit}&offset=${clicksTracker[topic]}&lang=en`;
+            clicksTracker[topic] += limit;
+            // console.log(url);
             $.ajax({
                 url: url,
                 method: "GET"
@@ -96,7 +113,7 @@
                     `
                 );
                 var img = $("<img>").addClass("card-img-top img-fluid").attr({ "src": e.imageStill, "image-animated": e.imageAnimated, "image-still": e.imageStill, "toggle": "still" }).prependTo(card);
-                img.click(function () {
+                img.hover(function () {
                     if ($(this).attr("toggle") === "still") {
                         $(this).attr("src", $(this).attr("image-animated"));
                         $(this).attr("toggle", "animated");
@@ -105,11 +122,76 @@
                         $(this).attr("toggle", "still");
                     }
                 });
+                img.click(function () {
+                    img.unbind("click");
+                    favoriteGiphies.push(e);
+                    card.animate({ height: "0" }, 500, function () {
+                        $(this).empty();
+                    });
+                    updateStorage();
+                });
                 card.find(".card-body").css("padding", "0");
                 card.find(".card-text").text(`Rating: ${e.rating}`);
                 card.appendTo(giphies);
             });
         }
+
+        $("#favorites").click(function () {
+            var giphies = $("#giphies");
+            giphies.empty();
+            favoriteGiphies.forEach(e => {
+                var card = $("<div>").addClass("card col-md-4").html(
+                    `
+                    <div class="card-body">
+                        <p class="card-text"></p>
+                    </div>
+                    `
+                );
+                var img = $("<img>").addClass("card-img-top img-fluid").attr({ "src": e.imageStill, "image-animated": e.imageAnimated, "image-still": e.imageStill, "toggle": "still" }).prependTo(card);
+                img.hover(function () {
+                    if ($(this).attr("toggle") === "still") {
+                        $(this).attr("src", $(this).attr("image-animated"));
+                        $(this).attr("toggle", "animated");
+                    } else {
+                        $(this).attr("src", $(this).attr("image-still"));
+                        $(this).attr("toggle", "still");
+                    }
+                });
+                img.click(function () {
+                    if (show("Delete this GIF?")) {
+                        img.unbind("click");
+                        favoriteGiphies.splice(favoriteGiphies.indexOf(e), 1);
+                        card.animate({ height: "0" }, 500, function () {
+                            $(this).empty();
+                        });
+                        updateStorage();
+                    }
+                });
+
+                card.find(".card-body").css("padding", "0");
+                card.find(".card-text").text(`Rating: ${e.rating}`);
+                card.appendTo(giphies);
+            });
+        });
+
+        $("#clear-storage").click(function () {
+            if (show("Are you sure you want to clear all favorites?")) {
+                favoriteGiphies = [];
+                $("#favorites").click();
+                updateStorage();
+            }
+        });
+
+        function updateStorage() {
+            localStorage.setItem(favoriteKey, JSON.stringify(favoriteGiphies));
+        }
+
+        function show(msg) {
+            return confirm(msg);
+        }
+
+        // call favorite button click on page load;
+        $("#favorites").click();
     </script>
 </body>
 
